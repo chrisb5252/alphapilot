@@ -1,108 +1,15 @@
 "use client";
+import { useCallback, useEffect, useState } from "react";
+import { PortfolioImportDialog } from "@/components/import/portfolio-import-dialog";
 
-import { AllocationCard } from "./allocation-card";
-import { CopilotChat } from "@/components/copilot/copilot-chat";
-import { DashboardHeader } from "./dashboard-header";
-import { compactMoney, money, percent } from "./formatters";
-import { portfolio } from "./mock-data";
-import { PerformanceChart } from "./performance-chart";
-import { HoldingsTable } from "./holdings-table";
-import { RiskPanel } from "./risk-panel";
-import { SummaryCard } from "./summary-card";
-
+type Dashboard = { portfolio: { id: string; name: string; totalValue: number; totalCost: number; totalGain: number; totalGainPercent: number | null; diversificationScore: number; holdingCount: number; importedAt: string }; holdings: Array<{ id: string; symbol: string; companyName: string | null; sector: string | null; shares: number; marketValue: number; allocationPercent: number }>; allocation: Array<{ label: string; value: number; percentage: number }> };
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 export function PortfolioDashboard() {
-  const todayTone = portfolio.dailyChange >= 0 ? "positive" : "negative";
-  return (
-    <div className="min-h-screen bg-[#f7f8f6]">
-      <DashboardHeader />
-      <main className="mx-auto max-w-360 px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[.16em] text-emerald-700">
-              Portfolio dashboard
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Good morning, {portfolio.ownerName}.
-            </h1>
-            <p className="mt-2 text-sm text-slate-500 sm:text-base">
-              A clear view of your investments, exposure, and portfolio health.
-            </p>
-          </div>
-          <button className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800">
-            Upload portfolio{" "}
-            <span className="ml-2 text-lg leading-none">↑</span>
-          </button>
-        </div>
-        <div className="mt-7 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-xs leading-5 text-emerald-900">
-          <strong>Educational analysis only.</strong> AlphaPilot offers
-          portfolio context and explanations—not recommendations to buy or sell.
-        </div>
-        <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            label="Portfolio value"
-            value={money.format(portfolio.totalValue)}
-            description={`${portfolio.dailyChange >= 0 ? "+" : ""}${money.format(portfolio.dailyChange)} today`}
-            tone={todayTone}
-          />
-          <SummaryCard
-            label="All-time return"
-            value={`${portfolio.totalGain >= 0 ? "+" : ""}${compactMoney.format(portfolio.totalGain)}`}
-            description={`${portfolio.totalGain >= 0 ? "+" : ""}${percent(portfolio.totalGainPercent)} since inception`}
-            tone="positive"
-          />
-          <SummaryCard
-            label="Diversification"
-            value={`${portfolio.diversificationScore}/100`}
-            description="Moderately diversified"
-          />
-          <SummaryCard
-            label="Total invested"
-            value={money.format(portfolio.invested)}
-            description="6 positions across 4 sectors"
-          />
-        </section>
-        <section className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_3px_rgba(15,23,42,0.02)] sm:p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight">
-                  Portfolio performance
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Portfolio value over the last 6 months
-                </p>
-              </div>
-              <button className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                6M ▾
-              </button>
-            </div>
-            <div className="mt-5 flex items-end gap-3">
-              <strong className="text-3xl tracking-tight text-slate-950">
-                {money.format(portfolio.totalValue)}
-              </strong>
-              <span className="mb-1 text-sm font-semibold text-emerald-600">
-                +{percent(portfolio.totalGainPercent)}
-              </span>
-            </div>
-            <PerformanceChart />
-          </article>
-          <AllocationCard />
-        </section>
-      <section className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <HoldingsTable />
-        <RiskPanel />
-      </section>
-      <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.45fr]">
-        <article className="rounded-2xl border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_2px_3px_rgba(15,23,42,0.08)] sm:p-7">
-          <span className="grid size-11 place-items-center rounded-xl bg-emerald-500 text-xl">✦</span>
-          <p className="mt-7 font-mono text-[11px] uppercase tracking-[.16em] text-emerald-300">AI investment copilot</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Turn numbers into understanding.</h2>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-slate-300">Ask Alpha to explain holdings, portfolio concentration, sector exposure, and educational risk signals.</p>
-          <ul className="mt-7 space-y-3 text-sm text-slate-300"><li>• Portfolio-aware answers</li><li>• Clear, structured takeaways</li><li>• No buy or sell recommendations</li></ul>
-        </article>
-        <CopilotChat />
-      </section>
-      </main>
-    </div>
-  );
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  const load = useCallback(async () => { setLoading(true); try { const res = await fetch("/api/portfolios/dashboard", { cache: "no-store" }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setDashboard(json.dashboard); } catch (e) { setError(e instanceof Error ? e.message : "Unable to load portfolio."); } finally { setLoading(false); } }, []);
+  useEffect(() => { load(); }, [load]);
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f8f6] text-slate-500">Loading your portfolio…</main>;
+  return <div className="min-h-screen bg-[#f7f8f6]"><main className="mx-auto max-w-7xl px-5 py-10 sm:px-8"><header className="flex flex-wrap items-end justify-between gap-5"><div><p className="font-mono text-[11px] font-semibold uppercase tracking-[.16em] text-emerald-700">AlphaPilot</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Portfolio dashboard</h1><p className="mt-2 text-sm text-slate-500">Clear portfolio context and education—not investment advice.</p></div><PortfolioImportDialog onComplete={load} portfolioId={dashboard?.portfolio.id}/></header>{error && <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}{!dashboard ? <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center"><h2 className="text-xl font-semibold">Your portfolio starts here</h2><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">Upload a CSV exported from Robinhood, Fidelity, Schwab, Vanguard, E*TRADE, Webull, or your own spreadsheet. You’ll be able to review every row before anything is saved.</p></section> : <LiveDashboard dashboard={dashboard}/>}</main></div>;
 }
+function LiveDashboard({ dashboard }: { dashboard: Dashboard }) { const { portfolio, holdings, allocation } = dashboard; const gain = portfolio.totalGain >= 0; return <><div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Card label="Portfolio value" value={money.format(portfolio.totalValue)} detail={`${portfolio.holdingCount} imported holdings`}/><Card label="Unrealized gain / loss" value={`${gain ? "+" : ""}${money.format(portfolio.totalGain)}`} detail={portfolio.totalGainPercent === null ? "Cost data unavailable" : `${gain ? "+" : ""}${portfolio.totalGainPercent.toFixed(1)}% from cost basis`} positive={gain}/><Card label="Diversification" value={`${portfolio.diversificationScore}/100`} detail="Based on holdings and sector concentration"/><Card label="Total invested" value={money.format(portfolio.totalCost)} detail={`Imported ${new Date(portfolio.importedAt).toLocaleDateString()}`}/></div><div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_.85fr]"><section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold">Holdings</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="border-b text-xs uppercase tracking-wide text-slate-500"><tr><th className="pb-3">Holding</th><th className="pb-3">Sector</th><th className="pb-3 text-right">Shares</th><th className="pb-3 text-right">Value</th><th className="pb-3 text-right">Weight</th></tr></thead><tbody>{holdings.sort((a,b)=>b.marketValue-a.marketValue).map((holding)=><tr className="border-b last:border-0" key={holding.id}><td className="py-3"><strong>{holding.symbol}</strong><span className="ml-2 text-slate-500">{holding.companyName}</span></td><td className="py-3 text-slate-500">{holding.sector || "Unclassified"}</td><td className="py-3 text-right">{holding.shares}</td><td className="py-3 text-right font-medium">{money.format(holding.marketValue)}</td><td className="py-3 text-right">{holding.allocationPercent.toFixed(1)}%</td></tr>)}</tbody></table></div></section><section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-lg font-semibold">Sector exposure</h2><div className="mt-5 space-y-4">{allocation.map((item)=><div key={item.label}><div className="flex justify-between text-sm"><span>{item.label}</span><strong>{item.percentage.toFixed(1)}%</strong></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{width:`${Math.min(100,item.percentage)}%`}}/></div></div>)}</div><div className="mt-8 rounded-xl bg-slate-950 p-4 text-sm text-white"><strong>Risk indicator</strong><p className="mt-1 text-slate-300">Largest holding: {holdings.reduce((top, x)=>x.marketValue>top.marketValue?x:top, holdings[0])?.symbol ?? "—"}. Concentration and sector exposure are educational signals, not recommendations.</p></div></section></div></> }
+function Card({label,value,detail,positive}:{label:string;value:string;detail:string;positive?:boolean}) { return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className={`mt-3 text-2xl font-semibold tracking-tight ${positive === false ? "text-red-600" : "text-slate-950"}`}>{value}</p><p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p></section> }

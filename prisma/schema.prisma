@@ -16,8 +16,82 @@ model User {
   firstName String?
   lastName  String?
   imageUrl  String?
+  portfolios Portfolio[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+}
+
+model Portfolio {
+  id        String          @id @default(cuid())
+  userId    String
+  name      String
+  currency  String          @default("USD")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings  Holding[]
+  imports   ImportHistory[]
+
+  @@index([userId, updatedAt])
+}
+
+model Holding {
+  id            String        @id @default(cuid())
+  portfolioId   String
+  importId      String
+  symbol        String
+  companyName   String?
+  sector        String?
+  shares        Decimal       @db.Decimal(18, 6)
+  costBasis     Decimal?      @db.Decimal(18, 4)
+  currentPrice  Decimal?      @db.Decimal(18, 4)
+  marketValue   Decimal       @db.Decimal(18, 4)
+  createdAt     DateTime      @default(now())
+
+  portfolio     Portfolio     @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  import        ImportHistory @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, symbol])
+  @@index([portfolioId, importId])
+}
+
+model ImportHistory {
+  id              String          @id @default(cuid())
+  portfolioId     String
+  broker          String
+  fileName        String
+  fileFingerprint String
+  holdingCount    Int
+  portfolioValue  Decimal         @db.Decimal(18, 4)
+  status          ImportStatus    @default(COMPLETED)
+  isActive        Boolean         @default(false)
+  importedAt      DateTime        @default(now())
+
+  portfolio       Portfolio       @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  holdings        Holding[]
+  csvLog          CSVImportLog?
+
+  @@unique([portfolioId, fileFingerprint])
+  @@index([portfolioId, isActive, importedAt])
+}
+
+model CSVImportLog {
+  id              String        @id @default(cuid())
+  importHistoryId String        @unique
+  rawCsv          String        @db.Text
+  detectedHeaders Json
+  warnings        Json?
+  errorCount      Int           @default(0)
+  createdAt       DateTime      @default(now())
+
+  importHistory   ImportHistory @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
+}
+
+enum ImportStatus {
+  PENDING
+  COMPLETED
+  FAILED
 }

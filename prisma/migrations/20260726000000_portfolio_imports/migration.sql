@@ -1,0 +1,16 @@
+CREATE TYPE "ImportStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
+CREATE TABLE "Portfolio" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "name" TEXT NOT NULL, "currency" TEXT NOT NULL DEFAULT 'USD', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Portfolio_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ImportHistory" ("id" TEXT NOT NULL, "portfolioId" TEXT NOT NULL, "broker" TEXT NOT NULL, "fileName" TEXT NOT NULL, "fileFingerprint" TEXT NOT NULL, "holdingCount" INTEGER NOT NULL, "portfolioValue" DECIMAL(18,4) NOT NULL, "status" "ImportStatus" NOT NULL DEFAULT 'COMPLETED', "isActive" BOOLEAN NOT NULL DEFAULT false, "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ImportHistory_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Holding" ("id" TEXT NOT NULL, "portfolioId" TEXT NOT NULL, "importId" TEXT NOT NULL, "symbol" TEXT NOT NULL, "companyName" TEXT, "sector" TEXT, "shares" DECIMAL(18,6) NOT NULL, "costBasis" DECIMAL(18,4), "currentPrice" DECIMAL(18,4), "marketValue" DECIMAL(18,4) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Holding_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "CSVImportLog" ("id" TEXT NOT NULL, "importHistoryId" TEXT NOT NULL, "rawCsv" TEXT NOT NULL, "detectedHeaders" JSONB NOT NULL, "warnings" JSONB, "errorCount" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "CSVImportLog_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "Portfolio_userId_updatedAt_idx" ON "Portfolio"("userId", "updatedAt");
+CREATE UNIQUE INDEX "Holding_importId_symbol_key" ON "Holding"("importId", "symbol");
+CREATE INDEX "Holding_portfolioId_importId_idx" ON "Holding"("portfolioId", "importId");
+CREATE UNIQUE INDEX "ImportHistory_portfolioId_fileFingerprint_key" ON "ImportHistory"("portfolioId", "fileFingerprint");
+CREATE INDEX "ImportHistory_portfolioId_isActive_importedAt_idx" ON "ImportHistory"("portfolioId", "isActive", "importedAt");
+CREATE UNIQUE INDEX "CSVImportLog_importHistoryId_key" ON "CSVImportLog"("importHistoryId");
+ALTER TABLE "Portfolio" ADD CONSTRAINT "Portfolio_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ImportHistory" ADD CONSTRAINT "ImportHistory_portfolioId_fkey" FOREIGN KEY ("portfolioId") REFERENCES "Portfolio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Holding" ADD CONSTRAINT "Holding_portfolioId_fkey" FOREIGN KEY ("portfolioId") REFERENCES "Portfolio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Holding" ADD CONSTRAINT "Holding_importId_fkey" FOREIGN KEY ("importId") REFERENCES "ImportHistory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CSVImportLog" ADD CONSTRAINT "CSVImportLog_importHistoryId_fkey" FOREIGN KEY ("importHistoryId") REFERENCES "ImportHistory"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { savePortfolioImport } from "@/lib/import/service";
 
 const row = z.object({ rowNumber: z.number().int(), symbol: z.string().max(15), companyName: z.string().max(180), sector: z.string().max(100), shares: z.number().nullable(), costBasis: z.number().nullable(), currentPrice: z.number().nullable(), marketValue: z.number().nullable() });
-const bodySchema = z.object({ portfolioId: z.string().optional(), portfolioName: z.string().max(80), broker: z.enum(["Robinhood", "Fidelity", "Charles Schwab", "Vanguard", "E*TRADE", "Webull", "Custom CSV"]), fileName: z.string().min(1).max(180), rawCsv: z.string().min(1).max(5_000_000), headers: z.array(z.string().max(200)).max(100), warnings: z.array(z.string().max(300)).max(100), rows: z.array(row).min(1).max(10_000) });
+const bodySchema = z.object({ portfolioId: z.string().optional(), portfolioName: z.string().max(80), broker: z.enum(["Robinhood", "Fidelity", "Charles Schwab", "Vanguard", "E*TRADE", "Webull", "Chase", "Custom CSV"]), fileName: z.string().min(1).max(180), rawCsv: z.string().min(1).max(5_000_000), headers: z.array(z.string().max(200)).max(100), warnings: z.array(z.string().max(300)).max(100), rows: z.array(row).min(1).max(10_000) });
 
 export async function POST(request: Request) {
   try { const user = await getCurrentAppUser(); const input = bodySchema.parse(await request.json()); return NextResponse.json(await savePortfolioImport(prisma, { ...input, userId: user.id }), { status: 201 }); }

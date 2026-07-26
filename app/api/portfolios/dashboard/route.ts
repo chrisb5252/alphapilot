@@ -12,5 +12,8 @@ export async function GET(request: Request) {
     if (!chosen) return NextResponse.json({ portfolios, dashboard: null });
     const imported = await prisma.importHistory.findFirst({ where: { portfolioId: chosen.id, isActive: true, status: "COMPLETED" }, include: { holdings: true }, orderBy: { importedAt: "desc" } });
     return NextResponse.json({ portfolios, dashboard: imported ? buildDashboard(imported.holdings, chosen.name, imported.id, imported.importedAt) : null });
-  } catch (error) { return NextResponse.json({ error: error instanceof UnauthorizedError ? error.message : "Unable to load your portfolio." }, { status: error instanceof UnauthorizedError ? 401 : 500 }); }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return NextResponse.json({ portfolios: [], dashboard: null });
+    return NextResponse.json({ error: "Unable to load your portfolio." }, { status: 500 });
+  }
 }

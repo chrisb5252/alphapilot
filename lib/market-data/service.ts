@@ -167,49 +167,56 @@ export async function backfillHistoricalPrices(securityId: string) {
       throw new MarketDataRateLimitError(result.message, result.retryAfterMs);
     return;
   }
-  await prisma.$transaction(
-    result.value.map((point) =>
-      prisma.historicalPrice.upsert({
-        where: {
-          securityId_provider_tradingDate_isAdjusted: {
+  // Keep transactions small enough for serverless Postgres and Prisma's query
+  // parameter limits. This also means a single malformed provider row cannot
+  // make an otherwise useful price refresh appear to hang.
+  const batchSize = 100;
+  for (let index = 0; index < result.value.length; index += batchSize) {
+    const batch = result.value.slice(index, index + batchSize);
+    await prisma.$transaction(
+      batch.map((point) =>
+        prisma.historicalPrice.upsert({
+          where: {
+            securityId_provider_tradingDate_isAdjusted: {
+              securityId,
+              provider: provider.id,
+              tradingDate: point.tradingDate,
+              isAdjusted: point.isAdjusted,
+            },
+          },
+          create: {
             securityId,
             provider: provider.id,
             tradingDate: point.tradingDate,
+            open: point.open ?? null,
+            high: point.high ?? null,
+            low: point.low ?? null,
+            close: point.close ?? null,
+            adjustedClose: point.adjustedClose ?? null,
+            volume: point.volume ?? null,
+            currency: point.currency ?? null,
             isAdjusted: point.isAdjusted,
+            marketTimestamp: point.marketTimestamp ?? null,
+            providerTimestamp: point.providerTimestamp ?? null,
+            provenance: json(point.provenance),
           },
-        },
-        create: {
-          securityId,
-          provider: provider.id,
-          tradingDate: point.tradingDate,
-          open: point.open ?? null,
-          high: point.high ?? null,
-          low: point.low ?? null,
-          close: point.close ?? null,
-          adjustedClose: point.adjustedClose ?? null,
-          volume: point.volume ?? null,
-          currency: point.currency ?? null,
-          isAdjusted: point.isAdjusted,
-          marketTimestamp: point.marketTimestamp ?? null,
-          providerTimestamp: point.providerTimestamp ?? null,
-          provenance: json(point.provenance),
-        },
-        update: {
-          open: point.open ?? null,
-          high: point.high ?? null,
-          low: point.low ?? null,
-          close: point.close ?? null,
-          adjustedClose: point.adjustedClose ?? null,
-          volume: point.volume ?? null,
-          currency: point.currency ?? null,
-          marketTimestamp: point.marketTimestamp ?? null,
-          providerTimestamp: point.providerTimestamp ?? null,
-          retrievedAt: new Date(),
-          provenance: json(point.provenance),
-        },
-      }),
-    ),
-  );
+          update: {
+            open: point.open ?? null,
+            high: point.high ?? null,
+            low: point.low ?? null,
+            close: point.close ?? null,
+            adjustedClose: point.adjustedClose ?? null,
+            volume: point.volume ?? null,
+            currency: point.currency ?? null,
+            marketTimestamp: point.marketTimestamp ?? null,
+            providerTimestamp: point.providerTimestamp ?? null,
+            retrievedAt: new Date(),
+            provenance: json(point.provenance),
+          },
+        }),
+      ),
+    );
+  }
 }
 
 export async function enrichSecurity(securityId: string) {

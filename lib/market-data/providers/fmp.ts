@@ -215,8 +215,15 @@ export class FmpProvider implements CompleteMarketDataProvider {
           },
         ];
       });
-      return points.length
-        ? { ok: true, value: points }
+      // FMP's `full` endpoint returns every available trading day. Persisting
+      // decades of daily bars during a button-click refresh can exceed a
+      // serverless request's time and database-parameter limits (AAPL is a
+      // particularly large example). A compact request deliberately keeps the
+      // most recent ~one trading year; a scheduled backfill can request more.
+      const boundedPoints =
+        options.outputSize === "compact" ? points.slice(0, 260) : points;
+      return boundedPoints.length
+        ? { ok: true, value: boundedPoints }
         : {
             ok: false,
             status: "UNAVAILABLE",

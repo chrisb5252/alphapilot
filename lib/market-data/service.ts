@@ -1,64 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { MarketDataRateLimitError } from "@/lib/market-data/errors";
+import {
+  recordProviderFailure as recordFailure,
+  reserveProviderRequest,
+} from "@/lib/market-data/budget";
 import { configuredMarketDataProvider } from "@/lib/market-data/provider-registry";
 import { isMarketDataStale } from "@/lib/market-data/cache";
 import { resolveCanonicalSecurity } from "@/lib/market-data/security-resolver";
-import type {
-  MarketDataProviderId,
-  SecurityLookup,
-} from "@/lib/market-data/types";
+import type { SecurityLookup } from "@/lib/market-data/types";
 
 const inFlight = new Map<string, Promise<void>>();
-const DAY = 86_400_000;
-const dailyLimit = Number(process.env.MARKET_DATA_DAILY_REQUEST_LIMIT ?? "25");
-
-function dayStart(now = new Date()) {
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-}
 function json(
   value: unknown,
 ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
   return value === undefined
     ? Prisma.JsonNull
     : (JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue);
-}
-
-async function reserveProviderRequest(provider: MarketDataProviderId) {
-  const usageDate = dayStart();
-  const current = await prisma.marketDataUsage.findUnique({
-    where: { provider_usageDate: { provider, usageDate } },
-  });
-  if ((current?.requestCount ?? 0) >= dailyLimit)
-    throw new MarketDataRateLimitError(
-      "Daily market-data budget reached. Data will refresh automatically tomorrow.",
-      DAY - (Date.now() - usageDate.valueOf()),
-    );
-  await prisma.marketDataUsage.upsert({
-    where: { provider_usageDate: { provider, usageDate } },
-    create: { provider, usageDate, requestCount: 1 },
-    update: { requestCount: { increment: 1 } },
-  });
-}
-async function recordFailure(
-  provider: MarketDataProviderId,
-  rateLimited = false,
-) {
-  const usageDate = dayStart();
-  await prisma.marketDataUsage.upsert({
-    where: { provider_usageDate: { provider, usageDate } },
-    create: {
-      provider,
-      usageDate,
-      failedCount: rateLimited ? 0 : 1,
-      rateLimitedCount: rateLimited ? 1 : 0,
-    },
-    update: rateLimited
-      ? { rateLimitedCount: { increment: 1 } }
-      : { failedCount: { increment: 1 } },
-  });
 }
 
 async function lookupForSecurity(
@@ -79,7 +37,10 @@ async function lookupForSecurity(
   };
 }
 
-export async function refreshQuoteForSecurity(securityId: string) {
+export async function refreshQuoteForSecurity(
+  securityId: string,
+  force = false,
+) {
   const key = `quote:${securityId}`;
   const pending = inFlight.get(key);
   if (pending) return pending;
@@ -89,7 +50,13 @@ export async function refreshQuoteForSecurity(securityId: string) {
     const existing = await prisma.marketQuote.findUnique({
       where: { securityId_provider: { securityId, provider: provider.id } },
     });
-    if (existing && !isMarketDataStale(existing.retrievedAt)) return;
+    if (
+      !force &&
+      existing &&
+      !isMarketDataStale(existing.retrievedAt) &&
+      ["REAL_TIME", "DELAYED", "END_OF_DAY"].includes(existing.dataStatus)
+    )
+      return;
     const lookup = await lookupForSecurity(securityId);
     if (!lookup?.symbol) {
       await prisma.marketQuote.upsert({

@@ -99,6 +99,7 @@ export function SecurityDetails({ securityId }: { securityId: string }) {
   const [security, setSecurity] = useState<SecurityData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -127,6 +128,31 @@ export function SecurityDetails({ securityId }: { securityId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch updates state asynchronously.
     void load();
   }, [load]);
+  const refresh = async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/market-data/securities/${securityId}/refresh`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        },
+      );
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Unable to refresh market data.");
+      await load();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Unable to refresh market data.",
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   if (loading)
     return (
@@ -175,10 +201,24 @@ export function SecurityDetails({ securityId }: { securityId: string }) {
               {security.name} · {security.exchange || "Exchange unavailable"}
             </p>
           </div>
-          <Status
-            status={quote?.dataStatus || resolution?.status || "UNAVAILABLE"}
-          />
+          <div className="flex items-center gap-3">
+            <Status
+              status={quote?.dataStatus || resolution?.status || "UNAVAILABLE"}
+            />
+            <button
+              disabled={refreshing}
+              onClick={() => void refresh()}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing…" : "Refresh data"}
+            </button>
+          </div>
         </header>
+        {error && (
+          <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
         <section className="mt-8 grid gap-4 lg:grid-cols-[1.5fr_.9fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

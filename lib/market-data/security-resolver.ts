@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { configuredMarketDataProvider } from "@/lib/market-data/provider-registry";
 import { chooseResolutionCandidate } from "@/lib/market-data/resolution";
+import { reserveProviderRequest } from "@/lib/market-data/budget";
 import type { ResolutionResult, SecurityLookup } from "@/lib/market-data/types";
 
 export async function resolveCanonicalSecurity(
@@ -52,6 +53,7 @@ export async function resolveCanonicalSecurity(
       message: "This security has no supported market-data identifier.",
     });
 
+  await reserveProviderRequest(provider.id);
   const result = await provider.resolveSecurity(lookup);
   if (!result.ok)
     return persist(securityId, provider.id, {

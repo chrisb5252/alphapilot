@@ -15,6 +15,10 @@ type MarketRecord = {
   providerTimestamp: string | null;
   retrievedAt: string;
   dataStatus: string;
+  provenance?: {
+    code?: string;
+    message?: string;
+  } | null;
 };
 type SecurityData = {
   id: string;
@@ -246,6 +250,12 @@ export function SecurityDetails({ securityId }: { securityId: string }) {
                 ? `${statusLabel(quote.dataStatus)} · Market date ${quote.marketTimestamp ? new Date(quote.marketTimestamp).toLocaleDateString() : "unavailable"} · Retrieved ${new Date(quote.retrievedAt).toLocaleString()}`
                 : "No provider quote is stored yet. Check your market-data setup and allow the scheduled refresh to run."}
             </p>
+            {quote?.dataStatus === "PROVIDER_FAILURE" &&
+              quote.provenance?.message && (
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  FMP response: {quote.provenance.message}
+                </p>
+              )}
             <PriceChart prices={security.historicalPrices} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

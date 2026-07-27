@@ -85,6 +85,7 @@ model Portfolio {
   imports          ImportHistory[]
   snapshots        PortfolioSnapshot[]
   insights         PortfolioInsight[]
+  analyses         PortfolioAnalysis[]
   watchlists       Watchlist[]
   importJobs       ImportJob[]
   alertRules       AlertRule[]
@@ -406,21 +407,47 @@ model InvestmentTransaction {
 }
 
 model PortfolioSnapshot {
-  id                 String            @id @default(cuid())
+  id                 String              @id @default(cuid())
   portfolioId        String
-  totalValue         Decimal           @db.Decimal(24, 4)
-  cashValue          Decimal           @db.Decimal(24, 4)
-  investedValue      Decimal           @db.Decimal(24, 4)
-  dailyChange        Decimal?          @db.Decimal(24, 4)
-  dailyChangePercent Decimal?          @db.Decimal(18, 8)
+  totalValue         Decimal             @db.Decimal(24, 4)
+  cashValue          Decimal             @db.Decimal(24, 4)
+  investedValue      Decimal             @db.Decimal(24, 4)
+  dailyChange        Decimal?            @db.Decimal(24, 4)
+  dailyChangePercent Decimal?            @db.Decimal(18, 8)
   snapshotDate       DateTime
   sourceCoverage     Json?
-  createdAt          DateTime          @default(now())
-  portfolio          Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  createdAt          DateTime            @default(now())
+  portfolio          Portfolio           @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
   holdings           HoldingSnapshot[]
+  analyses           PortfolioAnalysis[]
 
   @@unique([portfolioId, snapshotDate])
   @@index([portfolioId, snapshotDate])
+}
+
+/// Immutable, versioned output of AlphaPilot's deterministic analytics engine.
+/// `result` retains decimal values as strings so a prior analysis can be
+/// reproduced without JavaScript floating-point conversion.
+model PortfolioAnalysis {
+  id                  String            @id @default(cuid())
+  portfolioId         String
+  portfolioSnapshotId String
+  engineVersion       String
+  formulaVersion      String
+  benchmarkKey        String            @default("NONE")
+  benchmarkSymbol     String?
+  dataTimestamp       DateTime
+  marketDataTimestamp DateTime?
+  assumptions         Json
+  result              Json
+  inputHash           String
+  createdAt           DateTime          @default(now())
+  portfolio           Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  portfolioSnapshot   PortfolioSnapshot @relation(fields: [portfolioSnapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioSnapshotId, engineVersion, formulaVersion, benchmarkKey])
+  @@index([portfolioId, createdAt])
+  @@index([portfolioId, benchmarkKey, formulaVersion])
 }
 
 model HoldingSnapshot {

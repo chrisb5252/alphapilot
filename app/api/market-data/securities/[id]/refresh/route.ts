@@ -13,6 +13,7 @@ import {
   refreshQuoteForSecurity,
 } from "@/lib/market-data/service";
 import { marketDataIsConfigured } from "@/lib/market-data/provider-registry";
+import { MarketDataRateLimitError } from "@/lib/market-data/errors";
 
 export async function POST(
   request: Request,
@@ -52,13 +53,20 @@ export async function POST(
     await refreshCorporateEvents(id);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    const message =
+      error instanceof MarketDataRateLimitError
+        ? error.message
+        : error instanceof Error && error.message.length <= 300
+          ? `Market-data provider response: ${error.message}`
+          : "Market-data provider failed. Please try again shortly.";
     return apiError(
       error,
-      error instanceof Error &&
-        error.message.includes("Daily market-data budget")
-        ? error.message
-        : "Unable to refresh market data. Please try again shortly.",
-      error instanceof UnauthorizedError ? 401 : 429,
+      message,
+      error instanceof UnauthorizedError
+        ? 401
+        : error instanceof MarketDataRateLimitError
+          ? 429
+          : 502,
     );
   }
 }

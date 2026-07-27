@@ -2,7 +2,7 @@
 
 ## Defaults
 
-- Market data is disabled until a server-only API key is configured.
+- Market data is disabled until a server-only FMP API key is configured.
 - `MARKET_DATA_DAILY_REQUEST_LIMIT` defaults to `25` per UTC day.
 - Quote cache TTL defaults to 15 minutes.
 - Identical in-process quote refreshes share one promise.

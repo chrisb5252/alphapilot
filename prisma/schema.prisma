@@ -757,6 +757,7 @@ enum AlertEventStatus {
 
 enum MarketDataProviderName {
   ALPHA_VANTAGE
+  FMP
 }
 
 enum SecurityResolutionStatus {

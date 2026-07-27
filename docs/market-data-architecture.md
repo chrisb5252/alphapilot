@@ -10,9 +10,9 @@ AlphaPilot uses provider-neutral TypeScript interfaces in `lib/market-data/types
 - `CorporateEventsProvider` — dividends, earnings, and splits.
 - `NewsProvider` — relevant news with source metadata.
 
-The first adapter is `AlphaVantageProvider`, called through HTTP rather than a vendor SDK. It is optional. Without a configured provider, the app continues to use broker/import values and marks market data unavailable; it never substitutes zero or fabricated data.
+The active primary adapter is `FmpProvider`, called through HTTP rather than a vendor SDK. `AlphaVantageProvider` remains available as an optional fallback. Without a configured provider, the app continues to use broker/import values and marks market data unavailable; it never substitutes zero or fabricated data.
 
-The adapter was selected after reviewing the provider's official API documentation for global daily history, adjusted series/corporate actions, symbol search, ETF profiles, statements, earnings, and news: <https://www.alphavantage.co/documentation/>.
+FMP was selected after reviewing its official documentation for global exchanges, quotes, historical prices, ETFs/mutual funds, statements, dividends, splits, earnings, and news: <https://site.financialmodelingprep.com/developer/docs/stable>.
 
 ## Identity resolution
 
@@ -39,8 +39,8 @@ The first adapter supports globally-searchable listed equities and the vendor's 
 ## Configuration
 
 ```text
-MARKET_DATA_PROVIDER=ALPHA_VANTAGE
-ALPHA_VANTAGE_API_KEY=server-only-secret
+MARKET_DATA_PROVIDER=FMP
+FMP_API_KEY=server-only-secret
 MARKET_DATA_DAILY_REQUEST_LIMIT=25
 MARKET_DATA_CACHE_TTL_MINUTES=15
 MARKET_DATA_INCLUDE_FINANCIALS=false

@@ -1,4 +1,4 @@
-export type MarketDataProviderId = "ALPHA_VANTAGE";
+export type MarketDataProviderId = "ALPHA_VANTAGE" | "FMP";
 
 export type MarketDataStatus =
   | "REAL_TIME"

@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AlphaVantageProvider } from "@/lib/market-data/providers/alpha-vantage";
+import { FmpProvider } from "@/lib/market-data/providers/fmp";
 import { chooseResolutionCandidate } from "@/lib/market-data/resolution";
 import { isMarketDataStale } from "@/lib/market-data/cache";
 
 const provider = new AlphaVantageProvider("test-key");
+const fmp = new FmpProvider("test-key");
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -138,5 +140,36 @@ describe("Alpha Vantage normalization", () => {
     const now = Date.now();
     expect(isMarketDataStale(new Date(now - 1_000), now)).toBe(false);
     expect(isMarketDataStale(new Date(now - 16 * 60_000), now)).toBe(true);
+  });
+});
+
+describe("FMP normalization", () => {
+  it("normalizes an FMP quote through the same provider-neutral contract", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            symbol: "AAPL",
+            price: 201.25,
+            previousClose: 200,
+            change: 1.25,
+            changesPercentage: 0.625,
+            currency: "USD",
+          },
+        ],
+      }),
+    );
+    const result = await fmp.getQuote({ symbol: "AAPL" });
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        price: "201.25",
+        previousClose: "200",
+        dataStatus: "DELAYED",
+      },
+    });
   });
 });

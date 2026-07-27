@@ -3,7 +3,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { configuredMarketDataProvider } from "@/lib/market-data/provider-registry";
 import { chooseResolutionCandidate } from "@/lib/market-data/resolution";
 import { reserveProviderRequest } from "@/lib/market-data/budget";
-import type { ResolutionResult, SecurityLookup } from "@/lib/market-data/types";
+import type {
+  MarketDataProviderId,
+  ResolutionResult,
+  SecurityLookup,
+} from "@/lib/market-data/types";
 
 export async function resolveCanonicalSecurity(
   securityId: string,
@@ -14,7 +18,7 @@ export async function resolveCanonicalSecurity(
   if (!security) throw new Error("Security not found.");
   const provider = configuredMarketDataProvider();
   if (!provider)
-    return persist(securityId, "ALPHA_VANTAGE", {
+    return persist(securityId, "FMP", {
       status: "UNRESOLVED",
       source: "provider_disabled",
       message: "Market data is not configured.",
@@ -70,7 +74,7 @@ export async function resolveCanonicalSecurity(
 
 async function persist(
   securityId: string,
-  provider: "ALPHA_VANTAGE",
+  provider: MarketDataProviderId,
   result: ResolutionResult,
 ): Promise<ResolutionResult> {
   const candidate = result.candidate;

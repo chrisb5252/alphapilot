@@ -1,7 +1,18 @@
-import type { Holding, Security } from "@/generated/prisma/client";
+import type {
+  Holding,
+  MarketQuote,
+  MarketSecurityResolution,
+  Security,
+} from "@/generated/prisma/client";
 const number = (value: unknown) => Number(value);
+type EnrichedHolding = Holding & {
+  security: Security & {
+    marketQuotes?: MarketQuote[];
+    marketResolutions?: MarketSecurityResolution[];
+  };
+};
 export function buildDashboard(
-  holdings: Array<Holding & { security: Security }>,
+  holdings: EnrichedHolding[],
   portfolioName: string,
   importId: string,
   importedAt: Date,
@@ -62,20 +73,46 @@ export function buildDashboard(
       diversificationScore,
       holdingCount: holdings.length,
     },
-    holdings: holdings.map((holding) => ({
-      id: holding.id,
-      symbol: holding.security.canonicalSymbol ?? holding.security.name,
-      companyName: holding.security.name,
-      sector: holding.security.sector,
-      shares: number(holding.quantity),
-      costBasis: holding.costBasis === null ? null : number(holding.costBasis),
-      currentPrice:
-        holding.currentPrice === null ? null : number(holding.currentPrice),
-      marketValue: number(holding.marketValue),
-      allocationPercent: totalValue
-        ? (number(holding.marketValue) / totalValue) * 100
-        : 0,
-    })),
+    holdings: holdings.map((holding) => {
+      const quote = holding.security.marketQuotes?.[0];
+      const resolution = holding.security.marketResolutions?.[0];
+      return {
+        id: holding.id,
+        securityId: holding.securityId,
+        symbol: holding.security.canonicalSymbol ?? holding.security.name,
+        companyName: holding.security.name,
+        sector: holding.security.sector,
+        shares: number(holding.quantity),
+        costBasis:
+          holding.costBasis === null ? null : number(holding.costBasis),
+        currentPrice:
+          holding.currentPrice === null ? null : number(holding.currentPrice),
+        marketValue: number(holding.marketValue),
+        allocationPercent: totalValue
+          ? (number(holding.marketValue) / totalValue) * 100
+          : 0,
+        marketData: quote
+          ? {
+              status: quote.dataStatus,
+              price: quote.price === null ? null : number(quote.price),
+              currency: quote.currency,
+              retrievedAt: quote.retrievedAt,
+              marketTimestamp: quote.marketTimestamp,
+              provider: quote.provider,
+            }
+          : {
+              status:
+                resolution?.status === "UNSUPPORTED"
+                  ? "UNSUPPORTED"
+                  : "UNAVAILABLE",
+              price: null,
+              currency: null,
+              retrievedAt: null,
+              marketTimestamp: null,
+              provider: null,
+            },
+      };
+    }),
     allocation,
   };
 }

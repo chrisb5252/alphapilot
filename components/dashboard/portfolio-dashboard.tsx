@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { PortfolioImportDialog } from "@/components/import/portfolio-import-dialog";
 
 type Dashboard = {
@@ -16,12 +17,21 @@ type Dashboard = {
   };
   holdings: Array<{
     id: string;
+    securityId: string;
     symbol: string;
     companyName: string | null;
     sector: string | null;
     shares: number;
     marketValue: number;
     allocationPercent: number;
+    marketData: {
+      status: string;
+      price: number | null;
+      currency: string | null;
+      retrievedAt: string | null;
+      marketTimestamp: string | null;
+      provider: string | null;
+    };
   }>;
   allocation: Array<{ label: string; value: number; percentage: number }>;
 };
@@ -154,10 +164,23 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
                   .map((holding) => (
                     <tr className="border-b last:border-0" key={holding.id}>
                       <td className="py-3">
-                        <strong>{holding.symbol}</strong>
+                        <Link
+                          href={`/securities/${holding.securityId}`}
+                          className="font-semibold text-slate-950 underline-offset-4 hover:text-emerald-700 hover:underline"
+                        >
+                          {holding.symbol}
+                        </Link>
                         <span className="ml-2 text-slate-500">
                           {holding.companyName}
                         </span>
+                        {holding.marketData.status !== "DELAYED" &&
+                          holding.marketData.status !== "END_OF_DAY" &&
+                          holding.marketData.status !== "REAL_TIME" && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              Market data:{" "}
+                              {marketDataLabel(holding.marketData.status)}
+                            </p>
+                          )}
                       </td>
                       <td className="py-3 text-slate-500">
                         {holding.sector || "Unclassified"}
@@ -209,6 +232,15 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
       </div>
     </>
   );
+}
+function marketDataLabel(status: string) {
+  const labels: Record<string, string> = {
+    STALE: "stale",
+    UNAVAILABLE: "unavailable",
+    UNSUPPORTED: "unsupported asset",
+    PROVIDER_FAILURE: "provider unavailable",
+  };
+  return labels[status] ?? "unresolved security";
 }
 function Card({
   label,

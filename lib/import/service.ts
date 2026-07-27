@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/client";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { validateHolding } from "./csv";
 import type { BrokerName, ImportPreviewRow } from "./types";
+import { queueSecurityMarketDataJobs } from "@/lib/market-data/jobs";
 
 export function fingerprintCsv(rawCsv: string) {
   return createHash("sha256").update(rawCsv).digest("hex");
@@ -76,7 +77,7 @@ export async function savePortfolioImport(
     (total, row) => total.plus(new Decimal(row.marketValue ?? 0)),
     new Decimal(0),
   );
-  return db.$transaction(async (tx) => {
+  const saved = await db.$transaction(async (tx) => {
     await tx.importHistory.updateMany({
       where: { portfolioId: portfolio.id, isActive: true },
       data: { isActive: false },
@@ -123,6 +124,7 @@ export async function savePortfolioImport(
       update: { isIncludedInAnalysis: true },
     });
     await tx.holding.deleteMany({ where: { accountId: account.id } });
+    const securityIds: string[] = [];
     for (const row of rows) {
       const security = await tx.security.upsert({
         where: { canonicalSymbol: row.symbol },
@@ -158,6 +160,7 @@ export async function savePortfolioImport(
           source: "CSV_IMPORT",
         },
       });
+      securityIds.push(security.id);
     }
     await tx.cSVImportLog.create({
       data: {
@@ -168,6 +171,13 @@ export async function savePortfolioImport(
         errorCount: 0,
       },
     });
-    return { portfolioId: portfolio.id, importId: imported.id };
+    return { portfolioId: portfolio.id, importId: imported.id, securityIds };
   });
+  // Market-data failures must never invalidate a user's successfully saved import.
+  await queueSecurityMarketDataJobs({
+    securityIds: saved.securityIds,
+    userId: input.userId,
+    portfolioId: saved.portfolioId,
+  }).catch(() => undefined);
+  return { portfolioId: saved.portfolioId, importId: saved.importId };
 }

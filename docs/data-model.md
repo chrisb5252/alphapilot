@@ -10,6 +10,12 @@ All money fields use `DECIMAL(24,4)` and quantities/prices use `DECIMAL(24,10)`.
 
 Existing portfolios receive a deterministic imported account. Securities and current holdings are backfilled only from each portfolio's active legacy import. Earlier import snapshots and raw CSV logs remain intact for compatibility.
 
+## Market-data layer
+
+The additive `20260728010000_market_data_layer` migration introduces `MarketSecurityResolution`, `MarketQuote`, `HistoricalPrice`, `SecurityEnrichment`, `CorporateEvent`, `MarketNewsItem`, `MarketDataJob`, and `MarketDataUsage`. No existing user, portfolio, account, holding, import, or SnapTrade data is deleted or rewritten.
+
+Money and price fields use PostgreSQL `DECIMAL`; provider responses are saved as decimal strings and Prisma writes them directly without JavaScript floating-point storage. Every cached record includes provider and retrieval provenance. `MarketDataJob` has optional user, portfolio, and security relations so background work can remain traceable to its owner and input.
+
 Source of truth: `prisma/schema.prisma`.
 
 ```text
@@ -47,6 +53,7 @@ Clerk user ID
 - No AI conversation, analysis result, audit event, deletion-request, consent, or retention model.
 - No database constraint permits only one active import per portfolio; application code attempts to enforce this transactionally.
 - The migration ordering is invalid for a new database: the portfolio/import migration references `User` before the init migration creates it.
+
 # SnapTrade additions
 
 The additive `20260728000000_snaptrade_connections` migration introduces encrypted provider user credentials and operational connection metadata on `BrokerageConnection`, local account labels on `InvestmentAccount`, sync counters/diagnostics on `SyncJob`, and the idempotent `WebhookEvent` ledger. It preserves existing legacy import rows and normalized holdings.

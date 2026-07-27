@@ -48,7 +48,9 @@ function isValidMessage(value: unknown): value is CopilotMessage {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const rawMessages: unknown[] = Array.isArray(body.messages) ? body.messages : [];
+    const rawMessages: unknown[] = Array.isArray(body.messages)
+      ? body.messages
+      : [];
     const messages = rawMessages
       .filter(isValidMessage)
       .slice(-MAX_MESSAGES)

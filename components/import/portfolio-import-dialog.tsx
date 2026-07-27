@@ -2,8 +2,215 @@
 import { useRef, useState } from "react";
 import { parsePortfolioCsv } from "@/lib/import/csv";
 import type { ParseResult } from "@/lib/import/types";
-const MAX_CSV=5*1024*1024;
-export function PortfolioImportDialog({onComplete,portfolioId}:{onComplete():void;portfolioId?:string}){const input=useRef<HTMLInputElement>(null);const[file,setFile]=useState<File|null>(null);const[data,setData]=useState<ParseResult|null>(null);const[raw,setRaw]=useState("");const[open,setOpen]=useState(false);const[error,setError]=useState("");const[saving,setSaving]=useState(false);
-async function choose(f?:File){if(!f)return;setError("");if(!f.name.toLowerCase().endsWith(".csv"))return setError("Choose a CSV file.");if(f.size>MAX_CSV)return setError("CSVs must be 5 MB or smaller.");setFile(f);const text=await f.text();setRaw(text);setData(parsePortfolioCsv(text));}
-async function save(){if(!file||!data)return;setSaving(true);try{const r=await fetch("/api/imports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({portfolioId,portfolioName:"My Portfolio",broker:data.broker,fileName:file.name,rawCsv:raw,headers:data.headers,warnings:data.warnings,rows:data.rows})});const out=await r.json();if(!r.ok)throw new Error(out.error);setOpen(false);setFile(null);setData(null);onComplete()}catch(e){setError(e instanceof Error?e.message:"Import failed.")}finally{setSaving(false)}}const invalid=!!data?.fileErrors.length||!!data?.rows.some(x=>x.errors.length);
-return <><button onClick={()=>setOpen(true)} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Upload portfolio</button>{open&&<div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"><div className="max-h-[92vh] w-full max-w-5xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl"><div className="flex justify-between"><div><h2 className="text-xl font-semibold">Import your portfolio</h2><p className="mt-1 text-sm text-slate-500">CSV only · up to 10,000 holdings.</p></div><button onClick={()=>setOpen(false)}>Close</button></div>{!file?<div className="mt-6 cursor-pointer rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-14 text-center" onClick={()=>input.current?.click()} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();void choose(e.dataTransfer.files[0])}}><b>Drop a broker CSV here</b><p className="mt-2 text-sm text-slate-500">or click to browse</p><input className="hidden" ref={input} type="file" accept=".csv,text/csv" onChange={e=>void choose(e.target.files?.[0])}/></div>:<div className="mt-6"><div className="flex justify-between rounded-xl bg-slate-50 p-4 text-sm"><b>{file.name}</b><button className="text-emerald-700" onClick={()=>{setFile(null);setData(null);setRaw("")}}>Replace</button></div>{data&&<><p className="mt-4 text-sm"><b>{data.broker}</b> detected · {data.rows.length} rows</p>{[...data.fileErrors,...data.warnings].map(x=><p key={x} className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-800">{x}</p>)}<div className="mt-5 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-slate-500">{["Ticker","Company","Shares","Market value","Sector",""].map(x=><th className="p-2" key={x}>{x}</th>)}</tr></thead><tbody>{data.rows.map((row,i)=><tr key={row.rowNumber} className={row.errors.length?"bg-red-50":"border-t"}><td className="p-2">{row.symbol}</td><td className="p-2">{row.companyName}</td><td className="p-2">{row.shares}</td><td className="p-2">{row.marketValue}</td><td className="p-2">{row.sector}</td><td className="p-2"><button className="text-red-600" onClick={()=>setData(x=>x?{...x,rows:x.rows.filter((_,n)=>n!==i)}:x)}>Remove</button>{row.errors.map(e=><p key={e.message} className="text-xs text-red-700">Row {row.rowNumber}: {e.message}</p>)}</td></tr>)}</tbody></table></div></>}</div>}{error&&<p className="mt-4 text-red-700">{error}</p>}<div className="mt-6 flex justify-end gap-3"><button onClick={()=>setOpen(false)}>Cancel</button><button disabled={!data||invalid||saving} onClick={()=>void save()} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">{saving?"Saving…":"Approve import"}</button></div></div></div>}</>}
+const MAX_CSV = 5 * 1024 * 1024;
+export function PortfolioImportDialog({
+  onComplete,
+  portfolioId,
+}: {
+  onComplete(): void;
+  portfolioId?: string;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [data, setData] = useState<ParseResult | null>(null);
+  const [raw, setRaw] = useState("");
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function choose(f?: File) {
+    if (!f) return;
+    setError("");
+    if (!f.name.toLowerCase().endsWith(".csv"))
+      return setError("Choose a CSV file.");
+    if (f.size > MAX_CSV) return setError("CSVs must be 5 MB or smaller.");
+    setFile(f);
+    const text = await f.text();
+    setRaw(text);
+    setData(parsePortfolioCsv(text));
+  }
+  async function save() {
+    if (!file || !data) return;
+    setSaving(true);
+    try {
+      const r = await fetch("/api/imports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          portfolioId,
+          portfolioName: "My Portfolio",
+          broker: data.broker,
+          fileName: file.name,
+          rawCsv: raw,
+          headers: data.headers,
+          warnings: data.warnings,
+          rows: data.rows,
+        }),
+      });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.error);
+      setOpen(false);
+      setFile(null);
+      setData(null);
+      onComplete();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  const invalid =
+    !!data?.fileErrors.length || !!data?.rows.some((x) => x.errors.length);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
+      >
+        Upload portfolio
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Import your portfolio</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  CSV only · up to 10,000 holdings.
+                </p>
+              </div>
+              <button onClick={() => setOpen(false)}>Close</button>
+            </div>
+            {!file ? (
+              <div
+                className="mt-6 cursor-pointer rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-14 text-center"
+                onClick={() => input.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  void choose(e.dataTransfer.files[0]);
+                }}
+              >
+                <b>Drop a broker CSV here</b>
+                <p className="mt-2 text-sm text-slate-500">
+                  or click to browse
+                </p>
+                <input
+                  className="hidden"
+                  ref={input}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(e) => void choose(e.target.files?.[0])}
+                />
+              </div>
+            ) : (
+              <div className="mt-6">
+                <div className="flex justify-between rounded-xl bg-slate-50 p-4 text-sm">
+                  <b>{file.name}</b>
+                  <button
+                    className="text-emerald-700"
+                    onClick={() => {
+                      setFile(null);
+                      setData(null);
+                      setRaw("");
+                    }}
+                  >
+                    Replace
+                  </button>
+                </div>
+                {data && (
+                  <>
+                    <p className="mt-4 text-sm">
+                      <b>{data.broker}</b> detected · {data.rows.length} rows
+                    </p>
+                    {[...data.fileErrors, ...data.warnings].map((x) => (
+                      <p
+                        key={x}
+                        className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-800"
+                      >
+                        {x}
+                      </p>
+                    ))}
+                    <div className="mt-5 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-slate-500">
+                            {[
+                              "Ticker",
+                              "Company",
+                              "Shares",
+                              "Market value",
+                              "Sector",
+                              "",
+                            ].map((x) => (
+                              <th className="p-2" key={x}>
+                                {x}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.rows.map((row, i) => (
+                            <tr
+                              key={row.rowNumber}
+                              className={
+                                row.errors.length ? "bg-red-50" : "border-t"
+                              }
+                            >
+                              <td className="p-2">{row.symbol}</td>
+                              <td className="p-2">{row.companyName}</td>
+                              <td className="p-2">{row.shares}</td>
+                              <td className="p-2">{row.marketValue}</td>
+                              <td className="p-2">{row.sector}</td>
+                              <td className="p-2">
+                                <button
+                                  className="text-red-600"
+                                  onClick={() =>
+                                    setData((x) =>
+                                      x
+                                        ? {
+                                            ...x,
+                                            rows: x.rows.filter(
+                                              (_, n) => n !== i,
+                                            ),
+                                          }
+                                        : x,
+                                    )
+                                  }
+                                >
+                                  Remove
+                                </button>
+                                {row.errors.map((e) => (
+                                  <p
+                                    key={e.message}
+                                    className="text-xs text-red-700"
+                                  >
+                                    Row {row.rowNumber}: {e.message}
+                                  </p>
+                                ))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {error && <p className="mt-4 text-red-700">{error}</p>}
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setOpen(false)}>Cancel</button>
+              <button
+                disabled={!data || invalid || saving}
+                onClick={() => void save()}
+                className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {saving ? "Saving…" : "Approve import"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

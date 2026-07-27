@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/internal/sync-jobs", "schedule": "*/10 * * * *" }
+  ]
+}

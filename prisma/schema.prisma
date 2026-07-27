@@ -7,91 +7,528 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Application profile, keyed to the identity managed by Clerk.
-/// Additional portfolio models are deliberately deferred to the next milestone.
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
+  id String @id @default(cuid())
+  clerkId String @unique
+  email String @unique
   firstName String?
-  lastName  String?
-  imageUrl  String?
+  lastName String?
+  imageUrl String?
   portfolios Portfolio[]
+  brokerageConnections BrokerageConnection[]
+  investmentAccounts InvestmentAccount[]
+  importJobs ImportJob[]
+  syncJobs SyncJob[]
+  watchlists Watchlist[]
+  alertRules AlertRule[]
+  alertEvents AlertEvent[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   @@index([createdAt])
 }
 
+model DataSource {
+  id String @id @default(cuid())
+  provider DataProvider @unique
+  displayName String
+  capabilities Json?
+  isEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  connections BrokerageConnection[]
+  importJobs ImportJob[]
+  syncJobs SyncJob[]
+}
+
+model BrokerageConnection {
+  id String @id @default(cuid())
+  userId String
+  dataSourceId String?
+  provider DataProvider
+  providerUserId String?
+  providerUserSecretEncrypted String?
+  providerConnectionId String?
+  brokerageName String
+  status BrokerageSyncStatus @default(PENDING)
+  lastSuccessfulSyncAt DateTime?
+  lastAttemptedSyncAt DateTime?
+  accountsSynchronized Int @default(0)
+  holdingsSynchronized Int @default(0)
+  transactionsSynchronized Int @default(0)
+  syncErrorCode String?
+  syncErrorMessage String?
+  safeErrorMessage String?
+  diagnosticId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataSource DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  accounts InvestmentAccount[]
+  syncJobs SyncJob[]
+  webhookEvents WebhookEvent[]
+  @@unique([userId, provider, providerConnectionId])
+  @@index([userId, status])
+}
+
 model Portfolio {
-  id        String          @id @default(cuid())
-  userId    String
-  name      String
-  currency  String          @default("USD")
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  holdings  Holding[]
-  imports   ImportHistory[]
-
+  id String @id @default(cuid())
+  userId String
+  name String
+  currency String @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts InvestmentAccount[]
+  imports ImportHistory[]
+  snapshots PortfolioSnapshot[]
+  insights PortfolioInsight[]
+  watchlists Watchlist[]
+  importJobs ImportJob[]
+  alertRules AlertRule[]
+  importedHoldings ImportedHolding[]
   @@index([userId, updatedAt])
 }
 
-model Holding {
-  id            String        @id @default(cuid())
-  portfolioId   String
-  importId      String
-  symbol        String
-  companyName   String?
-  sector        String?
-  shares        Decimal       @db.Decimal(18, 6)
-  costBasis     Decimal?      @db.Decimal(18, 4)
-  currentPrice  Decimal?      @db.Decimal(18, 4)
-  marketValue   Decimal       @db.Decimal(18, 4)
-  createdAt     DateTime      @default(now())
-
-  portfolio     Portfolio     @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
-  import        ImportHistory @relation(fields: [importId], references: [id], onDelete: Cascade)
-
-  @@unique([importId, symbol])
-  @@index([portfolioId, importId])
+model InvestmentAccount {
+  id String @id @default(cuid())
+  userId String
+  brokerageConnectionId String?
+  portfolioId String
+  providerAccountId String?
+  name String
+  localName String?
+  officialName String?
+  maskedAccountNumber String?
+  accountType String
+  accountSubtype String?
+  currency String @default("USD")
+  status AccountStatus @default(ACTIVE)
+  isIncludedInAnalysis Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerageConnection BrokerageConnection? @relation(fields: [brokerageConnectionId], references: [id], onDelete: SetNull)
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  holdings Holding[]
+  cashBalances CashBalance[]
+  transactions InvestmentTransaction[]
+  holdingSnapshots HoldingSnapshot[]
+  importJobs ImportJob[]
+  @@unique([userId, providerAccountId])
+  @@index([portfolioId, status])
+  @@index([brokerageConnectionId])
 }
 
+model Security {
+  id String @id @default(cuid())
+  canonicalSymbol String? @unique
+  providerSecurityId String? @unique
+  cusip String? @unique
+  isin String? @unique
+  sedol String? @unique
+  name String
+  securityType SecurityType @default(OTHER)
+  exchange String?
+  currency String @default("USD")
+  sector String?
+  industry String?
+  country String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  holdings Holding[]
+  transactions InvestmentTransaction[]
+  holdingSnapshots HoldingSnapshot[]
+  watchlistSecurities WatchlistSecurity[]
+  insightEvidence InsightEvidence[]
+  alertRules AlertRule[]
+  @@index([name])
+  @@index([securityType, canonicalSymbol])
+}
+
+/// Current normalized account position. Historical import rows remain in ImportedHolding.
+model Holding {
+  id String @id @default(cuid())
+  accountId String
+  securityId String
+  quantity Decimal @db.Decimal(24, 10)
+  averageCost Decimal? @db.Decimal(24, 10)
+  costBasis Decimal? @db.Decimal(24, 4)
+  currentPrice Decimal? @db.Decimal(24, 10)
+  marketValue Decimal @db.Decimal(24, 4)
+  currency String @default("USD")
+  asOfDate DateTime
+  source HoldingSource
+  rawProviderData Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  security Security @relation(fields: [securityId], references: [id], onDelete: Restrict)
+  @@unique([accountId, securityId])
+  @@index([accountId, asOfDate])
+  @@index([securityId])
+}
+
+model CashBalance {
+  id String @id @default(cuid())
+  accountId String
+  amount Decimal @db.Decimal(24, 4)
+  currency String @default("USD")
+  asOfDate DateTime
+  source HoldingSource
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@unique([accountId, currency])
+  @@index([accountId, asOfDate])
+}
+
+model InvestmentTransaction {
+  id String @id @default(cuid())
+  accountId String
+  securityId String?
+  providerTransactionId String?
+  type TransactionType
+  subtype String?
+  tradeDate DateTime
+  settlementDate DateTime?
+  quantity Decimal? @db.Decimal(24, 10)
+  price Decimal? @db.Decimal(24, 10)
+  amount Decimal @db.Decimal(24, 4)
+  fees Decimal? @db.Decimal(24, 4)
+  currency String @default("USD")
+  description String
+  source HoldingSource
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  security Security? @relation(fields: [securityId], references: [id], onDelete: SetNull)
+  @@unique([accountId, providerTransactionId])
+  @@index([accountId, tradeDate])
+  @@index([securityId, tradeDate])
+}
+
+model PortfolioSnapshot {
+  id String @id @default(cuid())
+  portfolioId String
+  totalValue Decimal @db.Decimal(24, 4)
+  cashValue Decimal @db.Decimal(24, 4)
+  investedValue Decimal @db.Decimal(24, 4)
+  dailyChange Decimal? @db.Decimal(24, 4)
+  dailyChangePercent Decimal? @db.Decimal(18, 8)
+  snapshotDate DateTime
+  sourceCoverage Json?
+  createdAt DateTime @default(now())
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  holdings HoldingSnapshot[]
+  @@unique([portfolioId, snapshotDate])
+  @@index([portfolioId, snapshotDate])
+}
+
+model HoldingSnapshot {
+  id String @id @default(cuid())
+  portfolioSnapshotId String
+  accountId String
+  securityId String
+  quantity Decimal @db.Decimal(24, 10)
+  marketValue Decimal @db.Decimal(24, 4)
+  costBasis Decimal? @db.Decimal(24, 4)
+  currency String @default("USD")
+  createdAt DateTime @default(now())
+  portfolioSnapshot PortfolioSnapshot @relation(fields: [portfolioSnapshotId], references: [id], onDelete: Cascade)
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  security Security @relation(fields: [securityId], references: [id], onDelete: Restrict)
+  @@unique([portfolioSnapshotId, accountId, securityId])
+  @@index([securityId])
+}
+
+model ImportJob {
+  id String @id @default(cuid())
+  userId String
+  portfolioId String?
+  accountId String?
+  dataSourceId String?
+  source HoldingSource
+  status JobStatus @default(PENDING)
+  fileName String?
+  errorCode String?
+  errorMessage String?
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  account InvestmentAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  dataSource DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  @@index([userId, status, createdAt])
+}
+
+model SyncJob {
+  id String @id @default(cuid())
+  userId String
+  brokerageConnectionId String?
+  dataSourceId String?
+  status JobStatus @default(PENDING)
+  errorCode String?
+  errorMessage String?
+  diagnosticId String?
+  attemptedAccounts Int @default(0)
+  synchronizedAccounts Int @default(0)
+  synchronizedHoldings Int @default(0)
+  synchronizedTransactions Int @default(0)
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerageConnection BrokerageConnection? @relation(fields: [brokerageConnectionId], references: [id], onDelete: SetNull)
+  dataSource DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  @@index([userId, status, createdAt])
+}
+
+model WebhookEvent {
+  id String @id @default(cuid())
+  provider DataProvider
+  providerEventId String
+  eventType String
+  providerUserId String?
+  brokerageConnectionId String?
+  payloadHash String
+  status WebhookEventStatus @default(RECEIVED)
+  diagnosticId String?
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  connection BrokerageConnection? @relation(fields: [brokerageConnectionId], references: [id], onDelete: SetNull)
+  @@unique([provider, providerEventId])
+  @@index([provider, status, receivedAt])
+  @@index([providerUserId])
+}
+
+model PortfolioInsight {
+  id String @id @default(cuid())
+  portfolioId String
+  type String
+  title String
+  summary String
+  severity InsightSeverity @default(INFO)
+  status InsightStatus @default(ACTIVE)
+  asOfDate DateTime
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  evidence InsightEvidence[]
+  @@index([portfolioId, status, asOfDate])
+}
+
+model InsightEvidence {
+  id String @id @default(cuid())
+  insightId String
+  securityId String?
+  metric String
+  value Json
+  createdAt DateTime @default(now())
+  insight PortfolioInsight @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  security Security? @relation(fields: [securityId], references: [id], onDelete: SetNull)
+  @@index([insightId])
+}
+
+model Watchlist {
+  id String @id @default(cuid())
+  userId String
+  portfolioId String?
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  securities WatchlistSecurity[]
+  @@unique([userId, name])
+}
+
+model WatchlistSecurity {
+  watchlistId String
+  securityId String
+  createdAt DateTime @default(now())
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  security Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  @@id([watchlistId, securityId])
+  @@index([securityId])
+}
+
+model AlertRule {
+  id String @id @default(cuid())
+  userId String
+  portfolioId String?
+  securityId String?
+  type String
+  configuration Json
+  isEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  security Security? @relation(fields: [securityId], references: [id], onDelete: SetNull)
+  events AlertEvent[]
+  @@index([userId, isEnabled])
+}
+
+model AlertEvent {
+  id String @id @default(cuid())
+  userId String
+  alertRuleId String?
+  status AlertEventStatus @default(PENDING)
+  payload Json
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alertRule AlertRule? @relation(fields: [alertRuleId], references: [id], onDelete: SetNull)
+  @@index([userId, status, createdAt])
+}
+
+/// Legacy import snapshot retained for compatibility and user-data preservation.
 model ImportHistory {
-  id              String          @id @default(cuid())
-  portfolioId     String
-  broker          String
-  fileName        String
+  id String @id @default(cuid())
+  portfolioId String
+  broker String
+  fileName String
   fileFingerprint String
-  holdingCount    Int
-  portfolioValue  Decimal         @db.Decimal(18, 4)
-  status          ImportStatus    @default(COMPLETED)
-  isActive        Boolean         @default(false)
-  importedAt      DateTime        @default(now())
-
-  portfolio       Portfolio       @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
-  holdings        Holding[]
-  csvLog          CSVImportLog?
-
+  holdingCount Int
+  portfolioValue Decimal @db.Decimal(18, 4)
+  status ImportStatus @default(COMPLETED)
+  isActive Boolean @default(false)
+  importedAt DateTime @default(now())
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  holdings ImportedHolding[]
+  csvLog CSVImportLog?
   @@unique([portfolioId, fileFingerprint])
   @@index([portfolioId, isActive, importedAt])
 }
 
-model CSVImportLog {
-  id              String        @id @default(cuid())
-  importHistoryId String        @unique
-  rawCsv          String        @db.Text
-  detectedHeaders Json
-  warnings        Json?
-  errorCount      Int           @default(0)
-  createdAt       DateTime      @default(now())
+model ImportedHolding {
+  id String @id @default(cuid())
+  portfolioId String
+  importId String
+  symbol String
+  companyName String?
+  sector String?
+  shares Decimal @db.Decimal(18, 6)
+  costBasis Decimal? @db.Decimal(18, 4)
+  currentPrice Decimal? @db.Decimal(18, 4)
+  marketValue Decimal @db.Decimal(18, 4)
+  createdAt DateTime @default(now())
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  import ImportHistory @relation(fields: [importId], references: [id], onDelete: Cascade)
+  @@unique([importId, symbol])
+  @@index([portfolioId, importId])
+}
 
-  importHistory   ImportHistory @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
+model CSVImportLog {
+  id String @id @default(cuid())
+  importHistoryId String @unique
+  rawCsv String @db.Text
+  detectedHeaders Json
+  warnings Json?
+  errorCount Int @default(0)
+  createdAt DateTime @default(now())
+  importHistory ImportHistory @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 }
 
 enum ImportStatus {
   PENDING
   COMPLETED
   FAILED
+}
+enum DataProvider {
+  CSV
+  PDF
+  SNAPTRADE
+  PLAID
+  MANUAL
+}
+enum ConnectionStatus {
+  PENDING
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  REQUIRES_REAUTH
+}
+enum BrokerageSyncStatus {
+  PENDING
+  CONNECTING
+  INITIAL_SYNC
+  ACTIVE
+  REFRESHING
+  REAUTH_REQUIRED
+  PARTIAL
+  FAILED
+  DISCONNECTED
+}
+enum AccountStatus {
+  ACTIVE
+  CLOSED
+  ERROR
+}
+enum SecurityType {
+  STOCK
+  ETF
+  MUTUAL_FUND
+  FIXED_INCOME
+  OPTION
+  CRYPTO
+  CASH
+  OTHER
+}
+enum HoldingSource {
+  CSV_IMPORT
+  PDF_IMPORT
+  SNAPTRADE
+  PLAID
+  MANUAL
+}
+enum TransactionType {
+  BUY
+  SELL
+  DIVIDEND
+  INTEREST
+  FEE
+  TRANSFER
+  DEPOSIT
+  WITHDRAWAL
+  SPLIT
+  OPTION_EXERCISE
+  OTHER
+}
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+enum WebhookEventStatus {
+  RECEIVED
+  QUEUED
+  PROCESSED
+  REJECTED
+  FAILED
+}
+enum InsightSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+}
+enum InsightStatus {
+  ACTIVE
+  DISMISSED
+  ARCHIVED
+}
+enum AlertEventStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  DISMISSED
 }

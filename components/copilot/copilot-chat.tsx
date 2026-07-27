@@ -38,6 +38,7 @@ export function CopilotChat() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from browser storage.
         if (Array.isArray(parsed) && parsed.length) setMessages(parsed);
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);

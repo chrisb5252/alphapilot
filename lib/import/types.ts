@@ -1,6 +1,18 @@
-export type BrokerName = "Robinhood" | "Fidelity" | "Charles Schwab" | "Vanguard" | "E*TRADE" | "Webull" | "Chase" | "Custom CSV";
+export type BrokerName =
+  | "Robinhood"
+  | "Fidelity"
+  | "Charles Schwab"
+  | "Vanguard"
+  | "E*TRADE"
+  | "Webull"
+  | "Chase"
+  | "Custom CSV";
 
-export type ImportIssue = { field: "symbol" | "shares" | "costBasis" | "currentPrice" | "marketValue" | "row"; message: string };
+export type ImportIssue = {
+  field:
+    "symbol" | "shares" | "costBasis" | "currentPrice" | "marketValue" | "row";
+  message: string;
+};
 
 export type ParsedHolding = {
   rowNumber: number;

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { secureEqual } from "@/lib/security/request-guards";
 import { synchronizeConnection } from "@/lib/snaptrade/service";
 
-export async function POST(request: Request) {
+async function processJobs(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization");
   if (!secret || !authorization || !secureEqual(authorization, `Bearer ${secret}`)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -17,3 +17,8 @@ export async function POST(request: Request) {
   }
   return NextResponse.json({ processed });
 }
+
+// Vercel Cron invokes the configured path with GET. POST remains useful for a
+// manually triggered authenticated worker in non-Vercel environments.
+export async function GET(request: Request) { return processJobs(request); }
+export async function POST(request: Request) { return processJobs(request); }

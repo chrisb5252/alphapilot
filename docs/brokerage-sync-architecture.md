@@ -9,4 +9,4 @@
 
 Connection states are `PENDING`, `CONNECTING`, `INITIAL_SYNC`, `ACTIVE`, `REFRESHING`, `REAUTH_REQUIRED`, `PARTIAL`, `FAILED`, and `DISCONNECTED`. Any user-owned query scopes through the authenticated AlphaPilot user ID.
 
-`vercel.json` invokes the authenticated `/api/internal/sync-jobs` worker every ten minutes to drain a small batch of queued `SyncJob` records. Set `CRON_SECRET` in Vercel; Vercel sends it as a bearer token to cron routes. For greater volume, move this consumer to a durable queue with retries and backoff. This keeps webhook acknowledgement fast and avoids duplicate work across Vercel instances.
+`vercel.json` invokes the authenticated `/api/internal/sync-jobs` worker once daily on Vercel Hobby, which is the free-plan minimum interval. Set `CRON_SECRET` in Vercel; Vercel sends it as a bearer token to cron routes. Manual refresh remains available to users. For production freshness or greater volume, move this consumer to a durable queue with retries and backoff, or upgrade to an execution plan that supports more frequent schedules.

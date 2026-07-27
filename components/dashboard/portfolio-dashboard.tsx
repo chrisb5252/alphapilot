@@ -34,6 +34,31 @@ type Dashboard = {
     };
   }>;
   allocation: Array<{ label: string; value: number; percentage: number }>;
+  analytics: {
+    diversificationScore: number;
+    concentration: {
+      topHoldingPercent: number | null;
+      topThreePercent: number | null;
+      largestSectorPercent: number | null;
+    };
+    assetAllocation: Array<{
+      label: string;
+      value: number;
+      percentage: number;
+    }>;
+    dataQuality: {
+      costBasisCoveragePercent: number;
+      classifiedValuePercent: number;
+      message: string;
+    };
+    insights: Array<{
+      id: string;
+      severity: "INFO" | "LOW" | "MEDIUM" | "HIGH";
+      title: string;
+      summary: string;
+    }>;
+    researchAreas: string[];
+  };
 };
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -113,7 +138,7 @@ export function PortfolioDashboard() {
   );
 }
 function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
-  const { portfolio, holdings, allocation } = dashboard;
+  const { portfolio, holdings, allocation, analytics } = dashboard;
   const gain = portfolio.totalGain >= 0;
   return (
     <>
@@ -230,7 +255,110 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
           </div>
         </section>
       </div>
+      <section className="mt-4 grid gap-4 lg:grid-cols-[1.25fr_.75fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold">Portfolio insights</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Educational composition signals from your imported holdings.
+              </p>
+            </div>
+            <span className="text-xs font-medium text-slate-500">
+              Imported data only
+            </span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {analytics.insights.map((insight) => (
+              <article
+                key={insight.id}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-slate-900">
+                    {insight.title}
+                  </h3>
+                  <Severity severity={insight.severity} />
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {insight.summary}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+        <aside className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold">Areas to research</h2>
+          {analytics.researchAreas.length ? (
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+              {analytics.researchAreas.map((area) => (
+                <li key={area} className="flex gap-2">
+                  <span className="text-emerald-600">•</span>
+                  <span>{area}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Import more classification or cost-basis data to generate targeted
+              research questions.
+            </p>
+          )}
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-semibold">Asset mix</h3>
+            <div className="mt-3 space-y-2 text-sm">
+              {analytics.assetAllocation.map((item) => (
+                <div key={item.label} className="flex justify-between gap-3">
+                  <span className="text-slate-600">{item.label}</span>
+                  <strong>{item.percentage.toFixed(1)}%</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </section>
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold">Analysis coverage</h2>
+        <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <p className="rounded-xl bg-slate-50 p-3 text-slate-600">
+            Sector classification:{" "}
+            <strong>
+              {analytics.dataQuality.classifiedValuePercent.toFixed(1)}%
+            </strong>{" "}
+            of imported value
+          </p>
+          <p className="rounded-xl bg-slate-50 p-3 text-slate-600">
+            Cost-basis coverage:{" "}
+            <strong>
+              {analytics.dataQuality.costBasisCoveragePercent.toFixed(1)}%
+            </strong>{" "}
+            of imported value
+          </p>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          {analytics.dataQuality.message}
+        </p>
+      </section>
     </>
+  );
+}
+function Severity({
+  severity,
+}: {
+  severity: "INFO" | "LOW" | "MEDIUM" | "HIGH";
+}) {
+  const className = {
+    INFO: "bg-slate-100 text-slate-700",
+    LOW: "bg-blue-50 text-blue-700",
+    MEDIUM: "bg-amber-50 text-amber-800",
+    HIGH: "bg-red-50 text-red-700",
+  }[severity];
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-[11px] font-semibold ${className}`}
+    >
+      {severity.toLowerCase()}
+    </span>
   );
 }
 function marketDataLabel(status: string) {

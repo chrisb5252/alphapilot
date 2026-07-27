@@ -58,7 +58,21 @@ export class FmpProvider implements CompleteMarketDataProvider {
     const response = await fetch(url, { next: { revalidate: 0 } });
     if (response.status === 429)
       throw new MarketDataRateLimitError("FMP rate limit reached.");
-    const body = await response.json();
+    // FMP can return a plain-text plan-access message with an HTTP 200 status.
+    // Parse text first so that message is preserved rather than surfacing a
+    // misleading JSON parse error to an investor.
+    const responseText = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(responseText);
+    } catch {
+      const message = responseText.trim().slice(0, 240);
+      throw new Error(
+        message
+          ? `FMP plan or provider response: ${message}`
+          : `FMP returned HTTP ${response.status} without a response body.`,
+      );
+    }
     if (!response.ok)
       throw new Error(
         `FMP returned HTTP ${response.status}: ${text(object(body).message) ?? text(object(body).error) ?? "request failed"}`,

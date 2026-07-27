@@ -150,16 +150,17 @@ describe("FMP normalization", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => [
-          {
-            symbol: "AAPL",
-            price: 201.25,
-            previousClose: 200,
-            change: 1.25,
-            changesPercentage: 0.625,
-            currency: "USD",
-          },
-        ],
+        text: async () =>
+          JSON.stringify([
+            {
+              symbol: "AAPL",
+              price: 201.25,
+              previousClose: 200,
+              change: 1.25,
+              changesPercentage: 0.625,
+              currency: "USD",
+            },
+          ]),
       }),
     );
     const result = await fmp.getQuote({ symbol: "AAPL" });
@@ -170,6 +171,24 @@ describe("FMP normalization", () => {
         previousClose: "200",
         dataStatus: "DELAYED",
       },
+    });
+  });
+
+  it("preserves FMP plain-text plan errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => "Premium Quote endpoint requires a paid plan.",
+      }),
+    );
+    const result = await fmp.getQuote({ symbol: "AAPL" });
+    expect(result).toMatchObject({
+      ok: false,
+      code: "PROVIDER_ERROR",
+      message:
+        "FMP plan or provider response: Premium Quote endpoint requires a paid plan.",
     });
   });
 });

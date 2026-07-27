@@ -3,6 +3,9 @@ import { FmpProvider } from "@/lib/market-data/providers/fmp";
 import type { CompleteMarketDataProvider } from "@/lib/market-data/types";
 
 export function configuredMarketDataProvider(): CompleteMarketDataProvider | null {
+  // Keep paid or rate-limited provider calls opt-in. A key may remain in an
+  // environment while AlphaPilot is operating in import-only analysis mode.
+  if (process.env.MARKET_DATA_ENABLED !== "true") return null;
   const provider = (process.env.MARKET_DATA_PROVIDER ?? "FMP").toUpperCase();
   if (provider === "FMP") {
     const key = process.env.FMP_API_KEY?.trim();

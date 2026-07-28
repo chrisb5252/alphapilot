@@ -255,13 +255,17 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
           </div>
         </section>
       </div>
-      <section className="mt-4 grid gap-4 lg:grid-cols-[1.25fr_.75fr]">
+      <section
+        id="research"
+        className="mt-4 grid gap-4 lg:grid-cols-[1.25fr_.75fr]"
+      >
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <h2 className="text-lg font-semibold">Portfolio insights</h2>
+              <h2 className="text-lg font-semibold">Research workspace</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Educational composition signals from your imported holdings.
+                A structured starting point for investigating portfolio
+                composition.
               </p>
             </div>
             <span className="text-xs font-medium text-slate-500">
@@ -288,7 +292,7 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
           </div>
         </div>
         <aside className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold">Areas to research</h2>
+          <h2 className="text-lg font-semibold">Research queue</h2>
           {analytics.researchAreas.length ? (
             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               {analytics.researchAreas.map((area) => (
@@ -304,6 +308,32 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
               research questions.
             </p>
           )}
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-semibold">Concentration profile</h3>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-lg bg-slate-50 p-2 text-slate-600">
+                <strong className="block text-sm text-slate-950">
+                  {analytics.concentration.topHoldingPercent?.toFixed(1) ?? "—"}
+                  %
+                </strong>
+                largest
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2 text-slate-600">
+                <strong className="block text-sm text-slate-950">
+                  {analytics.concentration.topThreePercent?.toFixed(1) ?? "—"}%
+                </strong>
+                top 3
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2 text-slate-600">
+                <strong className="block text-sm text-slate-950">
+                  {analytics.concentration.largestSectorPercent?.toFixed(1) ??
+                    "—"}
+                  %
+                </strong>
+                sector
+              </div>
+            </div>
+          </div>
           <div className="mt-6 border-t border-slate-100 pt-5">
             <h3 className="text-sm font-semibold">Asset mix</h3>
             <div className="mt-3 space-y-2 text-sm">
@@ -337,6 +367,10 @@ function LiveDashboard({ dashboard }: { dashboard: Dashboard }) {
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
           {analytics.dataQuality.message}
+        </p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          Use this workspace to form research questions—not to generate buy,
+          sell, or allocation recommendations.
         </p>
       </section>
     </>

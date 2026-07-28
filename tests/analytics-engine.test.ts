@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   analyzePortfolio,
   type CanonicalAnalysisHolding,
+  type CanonicalPortfolioSnapshot,
 } from "@/lib/portfolio/analytics-engine";
 
-const snapshot = (holdings: Array<Partial<CanonicalAnalysisHolding>> = []) => ({
+const snapshot = (
+  holdings: Array<Partial<CanonicalAnalysisHolding>> = [],
+): CanonicalPortfolioSnapshot => ({
   id: "snapshot",
   portfolioId: "portfolio",
   asOf: new Date("2026-01-02T00:00:00Z"),

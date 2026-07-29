@@ -65,7 +65,11 @@ const money = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
 });
-export function PortfolioDashboard() {
+export function PortfolioDashboard({
+  variant = "dashboard",
+}: {
+  variant?: "dashboard" | "analysis";
+}) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -103,10 +107,14 @@ export function PortfolioDashboard() {
               AlphaPilot
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              Portfolio dashboard
+              {variant === "analysis"
+                ? "Portfolio analysis"
+                : "Portfolio dashboard"}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
-              Clear portfolio context and education—not investment advice.
+              {variant === "analysis"
+                ? "A deterministic research workspace built from your imported portfolio data."
+                : "Clear portfolio context and education—not investment advice."}
             </p>
           </div>
           <PortfolioImportDialog

@@ -8,7 +8,7 @@ export function SiteNav() {
   const links = [
     { href: "/", label: "Home" },
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard#research", label: "Research" },
+    { href: "/analysis", label: "Analysis" },
     { href: "/settings/brokerages", label: "Brokerages" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },

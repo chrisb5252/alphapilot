@@ -1,5 +1,5 @@
-import { PortfolioDashboard } from "@/components/dashboard/portfolio-dashboard";
+import { PortfolioAnalysisReport } from "@/components/analysis/portfolio-analysis-report";
 
 export default function AnalysisPage() {
-  return <PortfolioDashboard variant="analysis" />;
+  return <PortfolioAnalysisReport />;
 }

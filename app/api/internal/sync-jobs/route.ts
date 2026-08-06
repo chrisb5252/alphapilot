@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { secureEqual } from "@/lib/security/request-guards";
 import { synchronizeConnection } from "@/lib/snaptrade/service";
 import { processMarketDataJobs } from "@/lib/market-data/jobs";
+import { createDailyPaperSnapshots } from "@/lib/paper-trading/service";
 
 async function processJobs(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -54,7 +55,8 @@ async function processJobs(request: Request) {
   // The Hobby cron runs once daily. Keep market-data work bounded so it cannot
   // starve connection syncs or exhaust a provider's request budget.
   const marketData = await processMarketDataJobs(4);
-  return NextResponse.json({ processed, marketData });
+  const paperSnapshots = await createDailyPaperSnapshots();
+  return NextResponse.json({ processed, marketData, paperSnapshots });
 }
 
 // Vercel Cron invokes the configured path with GET. POST remains useful for a

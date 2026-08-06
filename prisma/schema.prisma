@@ -23,6 +23,7 @@ model User {
   alertRules           AlertRule[]
   alertEvents          AlertEvent[]
   marketDataJobs       MarketDataJob[]
+  paperPortfolios      PaperPortfolio[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
@@ -93,6 +94,64 @@ model Portfolio {
   marketDataJobs   MarketDataJob[]
 
   @@index([userId, updatedAt])
+}
+
+/// A simulated portfolio that is deliberately isolated from brokerage and imported portfolios.
+model PaperPortfolio {
+  id               String             @id @default(cuid())
+  userId           String
+  name             String
+  startingCashUSD  Decimal            @db.Decimal(24, 10)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions        PaperPosition[]
+  transactions     PaperTransaction[]
+  snapshots        PaperSnapshot[]
+
+  @@index([userId, updatedAt])
+}
+
+/// Derived position state. Every mutation must be paired with an immutable PaperTransaction.
+model PaperPosition {
+  id               String          @id @default(cuid())
+  paperPortfolioId String
+  ticker           String
+  shares           Decimal         @db.Decimal(24, 10)
+  avgCostBasis     Decimal         @db.Decimal(24, 10)
+  openedAt         DateTime
+  updatedAt        DateTime        @updatedAt
+  paperPortfolio   PaperPortfolio  @relation(fields: [paperPortfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([paperPortfolioId, ticker])
+  @@index([paperPortfolioId, updatedAt])
+}
+
+/// Immutable simulated-trade ledger. It is never changed or deleted by normal trade flows.
+model PaperTransaction {
+  id               String               @id @default(cuid())
+  paperPortfolioId String
+  ticker           String
+  type             PaperTransactionType
+  shares           Decimal              @db.Decimal(24, 10)
+  priceAtAction    Decimal              @db.Decimal(24, 10)
+  timestamp        DateTime             @default(now())
+  paperPortfolio   PaperPortfolio       @relation(fields: [paperPortfolioId], references: [id], onDelete: Cascade)
+
+  @@index([paperPortfolioId, timestamp])
+}
+
+/// Daily end-of-day-style simulated valuation. Historical prices are intentionally not backfilled.
+model PaperSnapshot {
+  id               String          @id @default(cuid())
+  paperPortfolioId String
+  totalValueUSD    Decimal         @db.Decimal(24, 10)
+  cashUSD          Decimal         @db.Decimal(24, 10)
+  timestamp        DateTime        @default(now())
+  paperPortfolio   PaperPortfolio  @relation(fields: [paperPortfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([paperPortfolioId, timestamp])
+  @@index([paperPortfolioId, timestamp])
 }
 
 model InvestmentAccount {
@@ -744,6 +803,11 @@ enum TransactionType {
   SPLIT
   OPTION_EXERCISE
   OTHER
+}
+
+enum PaperTransactionType {
+  BUY
+  SELL
 }
 
 enum JobStatus {

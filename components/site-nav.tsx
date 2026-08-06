@@ -9,6 +9,7 @@ export function SiteNav() {
     { href: "/", label: "Home" },
     { href: "/dashboard", label: "Dashboard" },
     { href: "/analysis", label: "Analysis" },
+    { href: "/paper-trading", label: "Paper trading" },
     { href: "/settings/brokerages", label: "Brokerages" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },

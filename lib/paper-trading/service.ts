@@ -2,6 +2,7 @@ import { Prisma, type PaperTransactionType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getEntitlementsForUser } from "@/lib/entitlements";
 import { getCachedPaperQuote, getPaperTradeQuote } from "@/lib/market-data/paper-quote";
+import { recordPaperPortfolioCreated, recordPaperTrade } from "@/lib/paper-game/service";
 
 const ZERO = new Prisma.Decimal(0);
 const DEFAULT_STARTING_CASH = new Prisma.Decimal(100_000);
@@ -103,13 +104,15 @@ export async function createPaperPortfolio(input: {
     : DEFAULT_STARTING_CASH;
   if (startingCash.gt(new Prisma.Decimal(100_000_000)))
     throw new PaperTradingError("Starting cash cannot exceed $100,000,000.");
-  return prisma.paperPortfolio.create({
+  const portfolio = await prisma.paperPortfolio.create({
     data: {
       userId: input.userId,
       name: input.name?.trim().slice(0, 80) || "My paper portfolio",
       startingCashUSD: startingCash,
     },
   });
+  await recordPaperPortfolioCreated(input.userId, portfolio.id).catch(() => undefined);
+  return portfolio;
 }
 
 export async function getOwnedPaperPortfolio(userId: string, portfolioId: string) {
@@ -167,7 +170,7 @@ export async function executePaperTrade(input: {
         price,
       });
 
-      await tx.paperTransaction.create({
+      const transaction = await tx.paperTransaction.create({
         data: { paperPortfolioId: portfolio.id, ticker, type: input.type, shares, priceAtAction: price },
       });
       if (input.type === "BUY") {
@@ -193,10 +196,13 @@ export async function executePaperTrade(input: {
         where: { id: portfolio.id },
         data: { updatedAt: new Date() },
       });
-      return { cashAfter: input.type === "BUY" ? cash.minus(amount) : cash.plus(amount) };
+      return { cashAfter: input.type === "BUY" ? cash.minus(amount) : cash.plus(amount), transactionId: transaction.id };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  ).then(async (result) => {
+    await recordPaperTrade(input.userId, result.transactionId).catch(() => undefined);
+    return result;
+  });
 }
 
 type ViewPosition = { ticker: string; shares: Prisma.Decimal; avgCostBasis: Prisma.Decimal; openedAt: Date };

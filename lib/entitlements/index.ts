@@ -7,6 +7,7 @@ export type AlphaPilotPlan = "FREE" | "PRO" | "PREMIUM";
 export type Entitlements = {
   plan: AlphaPilotPlan;
   paperPortfolioLimit: number;
+  paperLeagueCreationLimit: number;
 };
 
 export function getEntitlementsForUser(userId: string): Entitlements {
@@ -21,5 +22,6 @@ export function getEntitlementsForUser(userId: string): Entitlements {
     plan,
     // Premium remains intentionally disabled until its product definition exists.
     paperPortfolioLimit: plan === "FREE" ? 2 : 10,
+    paperLeagueCreationLimit: plan === "FREE" ? 1 : 10,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { PaperGamePanel } from "@/components/paper-trading/paper-game-panel";
 
 type PortfolioListItem = {
   id: string;
@@ -324,7 +325,7 @@ export function PaperTradingWorkspace() {
           />
         ) : (
           <>
-            <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Metric
                 label="Simulated value"
                 value={money(detail.totalValueUSD)}
@@ -345,7 +346,8 @@ export function PaperTradingWorkspace() {
                 label="Open positions"
                 value={String(detail.positions.length)}
               />
-            </section>
+      </section>
+      <PaperGamePanel />
             {!detail.priceCoverage && (
               <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                 Some current prices are unavailable. AlphaPilot does not

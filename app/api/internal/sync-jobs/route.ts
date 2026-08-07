@@ -4,6 +4,7 @@ import { secureEqual } from "@/lib/security/request-guards";
 import { synchronizeConnection } from "@/lib/snaptrade/service";
 import { processMarketDataJobs } from "@/lib/market-data/jobs";
 import { createDailyPaperSnapshots } from "@/lib/paper-trading/service";
+import { processPaperGameJobs } from "@/lib/paper-game/service";
 
 async function processJobs(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -56,7 +57,8 @@ async function processJobs(request: Request) {
   // starve connection syncs or exhaust a provider's request budget.
   const marketData = await processMarketDataJobs(4);
   const paperSnapshots = await createDailyPaperSnapshots();
-  return NextResponse.json({ processed, marketData, paperSnapshots });
+  const paperGame = await processPaperGameJobs(25);
+  return NextResponse.json({ processed, marketData, paperSnapshots, paperGame });
 }
 
 // Vercel Cron invokes the configured path with GET. POST remains useful for a
